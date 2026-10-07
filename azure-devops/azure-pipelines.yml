@@ -1,0 +1,38 @@
+# Example consumer pipeline: builds, tests and packages both sample apps.
+# To use from another repository, declare this repo as a resource and reference
+# the templates with @templates (see docs/usage.md).
+trigger:
+  branches:
+    include: [main]
+
+pr:
+  branches:
+    include: [main]
+
+stages:
+  - stage: build
+    displayName: Build and test
+    jobs:
+      - template: templates/dotnet-build.yml
+        parameters:
+          projectPath: samples/dotnet-api/SampleApi.sln
+
+      - template: templates/java-build.yml
+        parameters:
+          workingDirectory: samples/springboot-api
+
+  - stage: package
+    displayName: Docker images
+    dependsOn: build
+    jobs:
+      - template: templates/docker.yml
+        parameters:
+          imageName: sample-dotnet-api
+          dockerfile: samples/dotnet-api/Dockerfile
+          buildContext: samples/dotnet-api
+
+      - template: templates/docker.yml
+        parameters:
+          imageName: sample-springboot-api
+          dockerfile: samples/springboot-api/Dockerfile
+          buildContext: samples/springboot-api

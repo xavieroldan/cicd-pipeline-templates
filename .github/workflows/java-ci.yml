@@ -1,0 +1,48 @@
+# Reusable workflow: build and test a Maven project.
+name: Java CI (reusable)
+
+on:
+  workflow_call:
+    inputs:
+      working-directory:
+        description: Directory containing pom.xml
+        type: string
+        default: "."
+      java-version:
+        description: Java version (Temurin)
+        type: string
+        default: "21"
+      maven-args:
+        description: Extra arguments for mvn verify
+        type: string
+        default: ""
+
+permissions:
+  contents: read
+
+jobs:
+  build-test:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ${{ inputs.working-directory }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: ${{ inputs.java-version }}
+          cache: maven
+          cache-dependency-path: ${{ inputs.working-directory }}/pom.xml
+
+      - name: Build and test
+        run: mvn -B -ntp verify ${{ inputs.maven-args }}
+
+      - name: Upload test reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: java-test-reports
+          path: ${{ inputs.working-directory }}/target/surefire-reports
+          if-no-files-found: ignore

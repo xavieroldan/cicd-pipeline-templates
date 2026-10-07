@@ -1,0 +1,41 @@
+# Job template: build and test a Maven project.
+parameters:
+  - name: workingDirectory
+    type: string
+    default: "."
+  - name: javaVersion
+    type: string
+    default: "21"
+
+jobs:
+  - job: java_build
+    displayName: Java build and test
+    pool:
+      vmImage: ubuntu-latest
+    variables:
+      MAVEN_CACHE_FOLDER: $(Pipeline.Workspace)/.m2/repository
+    steps:
+      - task: Cache@2
+        displayName: Cache Maven repository
+        inputs:
+          key: 'maven | "$(Agent.OS)" | ${{ parameters.workingDirectory }}/pom.xml'
+          restoreKeys: 'maven | "$(Agent.OS)"'
+          path: $(MAVEN_CACHE_FOLDER)
+
+      - task: JavaToolInstaller@0
+        displayName: Use Java ${{ parameters.javaVersion }}
+        inputs:
+          versionSpec: ${{ parameters.javaVersion }}
+          jdkArchitectureOption: x64
+          jdkSourceOption: PreInstalled
+
+      - script: mvn -B -ntp verify -Dmaven.repo.local=$(MAVEN_CACHE_FOLDER)
+        displayName: Build and test
+        workingDirectory: ${{ parameters.workingDirectory }}
+
+      - task: PublishTestResults@2
+        displayName: Publish test results
+        condition: always()
+        inputs:
+          testResultsFormat: JUnit
+          testResultsFiles: ${{ parameters.workingDirectory }}/target/surefire-reports/TEST-*.xml

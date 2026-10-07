@@ -1,0 +1,76 @@
+# Reusable workflow: build a Docker image and optionally push it to GHCR.
+name: Docker build (reusable)
+
+on:
+  workflow_call:
+    inputs:
+      image-name:
+        description: Image name (without registry and owner)
+        type: string
+        required: true
+      context:
+        description: Docker build context
+        type: string
+        default: "."
+      dockerfile:
+        description: Path to the Dockerfile (relative to the repository root)
+        type: string
+        default: Dockerfile
+      push:
+        description: Push the image to GitHub Container Registry
+        type: boolean
+        default: false
+    outputs:
+      image:
+        description: Full image reference with the commit SHA tag
+        value: ${{ jobs.build.outputs.image }}
+
+permissions:
+  contents: read
+  packages: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    outputs:
+      image: ${{ steps.ref.outputs.image }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: docker/setup-buildx-action@v3
+
+      - name: Image reference
+        id: ref
+        run: |
+          owner="$(echo '${{ github.repository_owner }}' | tr '[:upper:]' '[:lower:]')"
+          echo "base=ghcr.io/${owner}/${{ inputs.image-name }}" >> "$GITHUB_OUTPUT"
+          echo "image=ghcr.io/${owner}/${{ inputs.image-name }}:sha-${GITHUB_SHA::7}" >> "$GITHUB_OUTPUT"
+
+      - name: Tags and labels
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ steps.ref.outputs.base }}
+          tags: |
+            type=sha,prefix=sha-
+            type=semver,pattern={{version}}
+            type=raw,value=latest,enable={{is_default_branch}}
+
+      - name: Log in to GHCR
+        if: inputs.push
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build${{ inputs.push && ' and push' || '' }}
+        uses: docker/build-push-action@v6
+        with:
+          context: ${{ inputs.context }}
+          file: ${{ inputs.dockerfile }}
+          push: ${{ inputs.push }}
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha,scope=${{ inputs.image-name }}
+          cache-to: type=gha,mode=max,scope=${{ inputs.image-name }}

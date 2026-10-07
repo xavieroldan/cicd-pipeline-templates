@@ -1,0 +1,47 @@
+# Reusable workflow: deploy an image to a GitHub environment.
+# Approval rules and secrets are configured per environment in the repository settings,
+# so PROD can require a manual reviewer while DEV deploys automatically.
+name: Deploy (reusable)
+
+on:
+  workflow_call:
+    inputs:
+      environment:
+        description: GitHub environment name (dev, test, prod)
+        type: string
+        required: true
+      image:
+        description: Image reference to deploy
+        type: string
+        required: true
+      deploy-command:
+        description: Command that performs the deployment; receives IMAGE and ENVIRONMENT as env vars
+        type: string
+        required: true
+
+permissions:
+  contents: read
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment: ${{ inputs.environment }}
+    concurrency:
+      group: deploy-${{ inputs.environment }}
+      cancel-in-progress: false
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Deploy
+        env:
+          IMAGE: ${{ inputs.image }}
+          ENVIRONMENT: ${{ inputs.environment }}
+        run: ${{ inputs.deploy-command }}
+
+      - name: Summary
+        run: |
+          {
+            echo "### Deployed to \`${{ inputs.environment }}\`"
+            echo ""
+            echo "Image: \`${{ inputs.image }}\`"
+          } >> "$GITHUB_STEP_SUMMARY"

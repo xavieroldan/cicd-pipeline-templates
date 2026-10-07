@@ -1,16 +1,20 @@
-# Build outputs from sample apps
+# .NET
 bin/
 obj/
+*.user
+.vs/
+TestResults/
+test-results/
+
+# Java / Maven
 target/
 *.class
 
-# IDE / OS
-.vs/
-.vscode/
-.idea/
-*.user
+# OS / editor
 .DS_Store
 Thumbs.db
+.vscode/
+.idea/
 
 # Local secrets
 .env

@@ -1,0 +1,49 @@
+# Self-test: exercises the reusable workflows against the sample apps.
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+  packages: write
+
+jobs:
+  dotnet:
+    uses: ./.github/workflows/dotnet-ci.yml
+    with:
+      project-path: samples/dotnet-api/SampleApi.sln
+
+  java:
+    uses: ./.github/workflows/java-ci.yml
+    with:
+      working-directory: samples/springboot-api
+
+  dotnet-image:
+    needs: dotnet
+    uses: ./.github/workflows/docker-build.yml
+    with:
+      image-name: sample-dotnet-api
+      context: samples/dotnet-api
+      dockerfile: samples/dotnet-api/Dockerfile
+      push: ${{ github.event_name == 'push' }}
+
+  java-image:
+    needs: java
+    uses: ./.github/workflows/docker-build.yml
+    with:
+      image-name: sample-springboot-api
+      context: samples/springboot-api
+      dockerfile: samples/springboot-api/Dockerfile
+      push: ${{ github.event_name == 'push' }}
+
+  deploy-dev:
+    if: github.event_name == 'push'
+    needs: dotnet-image
+    uses: ./.github/workflows/deploy.yml
+    with:
+      environment: dev
+      image: ${{ needs.dotnet-image.outputs.image }}
+      deploy-command: echo "Demo deployment of $IMAGE to $ENVIRONMENT (replace with your real deploy command)"

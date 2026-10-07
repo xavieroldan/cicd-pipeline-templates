@@ -1,0 +1,52 @@
+# Job template: restore, build and test a .NET solution or project.
+parameters:
+  - name: projectPath
+    type: string
+  - name: dotnetVersion
+    type: string
+    default: "8.0.x"
+  - name: configuration
+    type: string
+    default: Release
+
+jobs:
+  - job: dotnet_build
+    displayName: .NET build and test
+    pool:
+      vmImage: ubuntu-latest
+    variables:
+      DOTNET_NOLOGO: "true"
+      DOTNET_CLI_TELEMETRY_OPTOUT: "true"
+      NUGET_PACKAGES: $(Pipeline.Workspace)/.nuget/packages
+    steps:
+      - task: UseDotNet@2
+        displayName: Install .NET SDK
+        inputs:
+          packageType: sdk
+          version: ${{ parameters.dotnetVersion }}
+
+      - task: Cache@2
+        displayName: Cache NuGet packages
+        inputs:
+          key: 'nuget | "$(Agent.OS)" | **/*.csproj'
+          restoreKeys: 'nuget | "$(Agent.OS)"'
+          path: $(NUGET_PACKAGES)
+
+      - script: dotnet restore "${{ parameters.projectPath }}"
+        displayName: Restore
+
+      - script: dotnet build "${{ parameters.projectPath }}" -c ${{ parameters.configuration }} --no-restore
+        displayName: Build
+
+      - script: >
+          dotnet test "${{ parameters.projectPath }}" -c ${{ parameters.configuration }} --no-build
+          --collect:"XPlat Code Coverage" --logger trx --results-directory $(Agent.TempDirectory)/test-results
+        displayName: Test with coverage
+
+      - task: PublishTestResults@2
+        displayName: Publish test results
+        condition: always()
+        inputs:
+          testResultsFormat: VSTest
+          testResultsFiles: "**/*.trx"
+          searchFolder: $(Agent.TempDirectory)/test-results
