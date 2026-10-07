@@ -1,0 +1,16 @@
+# Build outputs from sample apps
+bin/
+obj/
+target/
+*.class
+
+# IDE / OS
+.vs/
+.vscode/
+.idea/
+*.user
+.DS_Store
+Thumbs.db
+
+# Local secrets
+.env
