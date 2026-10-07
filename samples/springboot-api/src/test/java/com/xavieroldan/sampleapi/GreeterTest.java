@@ -10,7 +10,7 @@ class GreeterTest {
     private final Greeter greeter = new Greeter();
 
     @ParameterizedTest
-    @CsvSource(value = {"Xavi,Hello, Xavi!", "'  Ana ',Hello, Ana!", "NULL,Hello, world!"}, nullValues = "NULL")
+    @CsvSource(delimiter = '|', value = {"Xavi|Hello, Xavi!", "'  Ana '|Hello, Ana!", "NULL|Hello, world!"}, nullValues = "NULL")
     void greetReturnsExpectedMessage(String name, String expected) {
         assertEquals(expected, greeter.greet(name));
     }
